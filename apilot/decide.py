@@ -9,14 +9,16 @@ RESOLUTION_PHRASE = {
     "MISSING_PO": "locate or create the referenced purchase order",
     "MISSING_RECEIPT": "confirm goods receipt for the purchase order",
     "UNKNOWN_VENDOR": "verify vendor identity and currency",
+    "DUPLICATE_INVOICE": "review the duplicate invoice pair",
     "PRICE_MISMATCH": "reconcile unit price discrepancies",
+    "TAX_MISMATCH": "reconcile the tax-inclusive total discrepancy",
     "QTY_MISMATCH": "reconcile quantity discrepancies",
 }
 
 
-def decide(invoice, pos, receipts) -> Decision:
+def decide(invoice, pos, receipts, invoices=None) -> Decision:
     """Decide AUTO_POST or HUMAN_REVIEW from matcher findings."""
-    findings = match_invoice(invoice, pos, receipts)
+    findings = match_invoice(invoice, pos, receipts, invoices)
     if not findings:
         return Decision(
             invoice_id=invoice.id,

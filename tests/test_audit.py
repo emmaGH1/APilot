@@ -39,6 +39,16 @@ def test_deterministic_across_runs():
     assert [r.model_dump() for r in r1] == [r.model_dump() for r in r2]
 
 
+EXCEPTION_LABELS = {
+    "PRICE_MISMATCH",
+    "QTY_MISMATCH",
+    "MISSING_PO",
+    "DUPLICATE_INVOICE",
+    "MISSING_RECEIPT",
+    "TAX_MISMATCH",
+}
+
+
 def test_action_matches_label():
     records = apilot.audit.run_pipeline()
     by_id = {r.invoice_id: r for r in records}
@@ -46,9 +56,9 @@ def test_action_matches_label():
         action = by_id[inv_id].action
         if label == "CLEAN":
             assert action == "AUTO_POST"
-        elif label in {"PRICE_MISMATCH", "QTY_MISMATCH", "MISSING_PO", "MISSING_RECEIPT"}:
+        else:
+            assert label in EXCEPTION_LABELS
             assert action == "HUMAN_REVIEW"
-        # DUPLICATE_INVOICE / TAX_MISMATCH: matcher does not detect them yet
 
 
 def test_records_are_audit_records():

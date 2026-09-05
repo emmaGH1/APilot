@@ -35,7 +35,7 @@ def run_pipeline(data_dir=None) -> list[AuditRecord]:
             findings=decision.findings,
             suggested_resolution=decision.suggested_resolution,
         )
-        for decision in (decide(inv, pos, receipts) for inv in invoices)
+        for decision in (decide(inv, pos, receipts, invoices) for inv in invoices)
     ]
     records.sort(key=lambda r: r.invoice_id)
 

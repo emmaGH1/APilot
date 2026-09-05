@@ -688,10 +688,16 @@
   },
   {
     "invoice_id": "INV-0088",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0088 duplicates invoice INV-0087: vendor 'Ferrum Steel', invoice number '000087'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0089",
@@ -702,10 +708,16 @@
   },
   {
     "invoice_id": "INV-0090",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0090 duplicates invoice INV-0089: vendor 'Acme Supplies', invoice number '000088'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0091",
@@ -716,10 +728,16 @@
   },
   {
     "invoice_id": "INV-0092",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0092 duplicates invoice INV-0091: vendor 'CircuitCo', invoice number '000089'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0093",
@@ -730,10 +748,16 @@
   },
   {
     "invoice_id": "INV-0094",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0094 duplicates invoice INV-0093: vendor 'Bolt Hardware', invoice number '000090'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0095",
@@ -744,10 +768,16 @@
   },
   {
     "invoice_id": "INV-0096",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0096 duplicates invoice INV-0095: vendor 'Bolt Hardware', invoice number '000091'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0097",
@@ -758,10 +788,16 @@
   },
   {
     "invoice_id": "INV-0098",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0098 duplicates invoice INV-0097: vendor 'Ember Packaging', invoice number '000092'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0099",
@@ -772,10 +808,16 @@
   },
   {
     "invoice_id": "INV-0100",
-    "action": "AUTO_POST",
-    "confidence": 1.0,
-    "findings": [],
-    "suggested_resolution": "Automatically post invoice"
+    "action": "HUMAN_REVIEW",
+    "confidence": 0.0,
+    "findings": [
+      {
+        "type": "DUPLICATE_INVOICE",
+        "detail": "invoice INV-0100 duplicates invoice INV-0099: vendor 'Acme Supplies', invoice number '000093'",
+        "severity": "high"
+      }
+    ],
+    "suggested_resolution": "Human review required: review the duplicate invoice pair"
   },
   {
     "invoice_id": "INV-0101",
@@ -887,12 +929,12 @@
     "confidence": 0.0,
     "findings": [
       {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1005: invoice price 121.56 != PO price 110.51 (> 0.5% tolerance)",
+        "type": "TAX_MISMATCH",
+        "detail": "invoice INV-0109: all line prices are ~10% above PO 'PO-0053' (uniform uplift consistent with a tax-inclusive total)",
         "severity": "medium"
       }
     ],
-    "suggested_resolution": "Human review required: reconcile unit price discrepancies"
+    "suggested_resolution": "Human review required: reconcile the tax-inclusive total discrepancy"
   },
   {
     "invoice_id": "INV-0110",
@@ -900,17 +942,12 @@
     "confidence": 0.0,
     "findings": [
       {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1027: invoice price 111.38 != PO price 101.25 (> 0.5% tolerance)",
-        "severity": "medium"
-      },
-      {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1041: invoice price 214.58 != PO price 195.07 (> 0.5% tolerance)",
+        "type": "TAX_MISMATCH",
+        "detail": "invoice INV-0110: all line prices are ~10% above PO 'PO-0079' (uniform uplift consistent with a tax-inclusive total)",
         "severity": "medium"
       }
     ],
-    "suggested_resolution": "Human review required: reconcile unit price discrepancies"
+    "suggested_resolution": "Human review required: reconcile the tax-inclusive total discrepancy"
   },
   {
     "invoice_id": "INV-0111",
@@ -918,22 +955,12 @@
     "confidence": 0.0,
     "findings": [
       {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1037: invoice price 459.46 != PO price 417.69 (> 0.5% tolerance)",
-        "severity": "medium"
-      },
-      {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1020: invoice price 161.72 != PO price 147.02 (> 0.5% tolerance)",
-        "severity": "medium"
-      },
-      {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1026: invoice price 433.35 != PO price 393.95 (> 0.5% tolerance)",
+        "type": "TAX_MISMATCH",
+        "detail": "invoice INV-0111: all line prices are ~10% above PO 'PO-0075' (uniform uplift consistent with a tax-inclusive total)",
         "severity": "medium"
       }
     ],
-    "suggested_resolution": "Human review required: reconcile unit price discrepancies"
+    "suggested_resolution": "Human review required: reconcile the tax-inclusive total discrepancy"
   },
   {
     "invoice_id": "INV-0112",
@@ -941,17 +968,12 @@
     "confidence": 0.0,
     "findings": [
       {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1033: invoice price 342.68 != PO price 311.53 (> 0.5% tolerance)",
-        "severity": "medium"
-      },
-      {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1043: invoice price 451.13 != PO price 410.12 (> 0.5% tolerance)",
+        "type": "TAX_MISMATCH",
+        "detail": "invoice INV-0112: all line prices are ~10% above PO 'PO-0077' (uniform uplift consistent with a tax-inclusive total)",
         "severity": "medium"
       }
     ],
-    "suggested_resolution": "Human review required: reconcile unit price discrepancies"
+    "suggested_resolution": "Human review required: reconcile the tax-inclusive total discrepancy"
   },
   {
     "invoice_id": "INV-0113",
@@ -959,12 +981,12 @@
     "confidence": 0.0,
     "findings": [
       {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1026: invoice price 190.25 != PO price 172.95 (> 0.5% tolerance)",
+        "type": "TAX_MISMATCH",
+        "detail": "invoice INV-0113: all line prices are ~10% above PO 'PO-0038' (uniform uplift consistent with a tax-inclusive total)",
         "severity": "medium"
       }
     ],
-    "suggested_resolution": "Human review required: reconcile unit price discrepancies"
+    "suggested_resolution": "Human review required: reconcile the tax-inclusive total discrepancy"
   },
   {
     "invoice_id": "INV-0114",
@@ -972,12 +994,12 @@
     "confidence": 0.0,
     "findings": [
       {
-        "type": "PRICE_MISMATCH",
-        "detail": "sku SKU-1010: invoice price 379.91 != PO price 345.37 (> 0.5% tolerance)",
+        "type": "TAX_MISMATCH",
+        "detail": "invoice INV-0114: all line prices are ~10% above PO 'PO-0080' (uniform uplift consistent with a tax-inclusive total)",
         "severity": "medium"
       }
     ],
-    "suggested_resolution": "Human review required: reconcile unit price discrepancies"
+    "suggested_resolution": "Human review required: reconcile the tax-inclusive total discrepancy"
   },
   {
     "invoice_id": "INV-0115",
