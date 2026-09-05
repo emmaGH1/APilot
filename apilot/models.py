@@ -42,3 +42,10 @@ class Decision(BaseModel):
     findings: list[Finding]
     confidence: float  # 0.0 to 1.0
     suggested_resolution: str
+
+class AuditRecord(BaseModel):
+    invoice_id: str
+    action: str
+    confidence: float
+    findings: list[Finding]
+    suggested_resolution: str
