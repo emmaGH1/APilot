@@ -1,2 +1,7 @@
+__pycache__/
+.venv/
+*.db
+.env
+.opencode/
 frontend/node_modules/
 frontend/.next/
