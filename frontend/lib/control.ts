@@ -8,7 +8,7 @@ export type InvoiceStatus = {
   label: string;
   /** Semitone used for badges/chips: leaf | brass | clay | slate */
   tone: "leaf" | "brass" | "clay" | "slate";
-  verdict?: string;
+  postingStatus?: string;
 };
 
 export const BUCKETS: Array<{ id: Bucket; label: string }> = [
@@ -17,39 +17,156 @@ export const BUCKETS: Array<{ id: Bucket; label: string }> = [
   { id: "auto", label: "Auto-posted" },
 ];
 
-export const REVIEW_LABELS: Record<string, { label: string; tone: InvoiceStatus["tone"] }> = {
-  approve: { label: "Exception approved", tone: "leaf" },
-  hold: { label: "Payment held", tone: "brass" },
-  escalate: { label: "Escalated", tone: "clay" },
+/** Posting statuses from apilot/policy.py (same spelling as the API). */
+export const POSTING_AUTO_POSTED = "AUTO_POSTED";
+export const POSTING_BLOCKED = "BLOCKED_FOR_REVIEW";
+export const POSTING_OVERRIDE_APPROVED = "OVERRIDE_APPROVED";
+export const POSTING_ON_HOLD = "ON_HOLD";
+export const POSTING_ESCALATED = "ESCALATED";
+
+const POSTING_STATUS_META: Record<
+  string,
+  { bucket: Bucket; label: string; tone: InvoiceStatus["tone"] }
+> = {
+  [POSTING_AUTO_POSTED]: { bucket: "auto", label: "Auto-posted", tone: "leaf" },
+  [POSTING_BLOCKED]: { bucket: "unresolved", label: "Blocked for review", tone: "brass" },
+  [POSTING_OVERRIDE_APPROVED]: { bucket: "reviewed", label: "Exception approved", tone: "leaf" },
+  [POSTING_ON_HOLD]: { bucket: "reviewed", label: "Payment on hold", tone: "brass" },
+  [POSTING_ESCALATED]: { bucket: "reviewed", label: "Escalated", tone: "clay" },
 };
 
-/** Demo-company control catalog (additive /api/context may override). */
-export type Control = { id: string; name: string; rule: string; findingTypes: string[] };
+/** Review verdict -> posting status (apilot.policy.VERDICT_TO_STATUS). */
+const VERDICT_TO_POSTING: Record<string, string> = {
+  approve: POSTING_OVERRIDE_APPROVED,
+  hold: POSTING_ON_HOLD,
+  escalate: POSTING_ESCALATED,
+};
+
+/**
+ * Effective posting state for an invoice. Prefers the API's live
+ * `posting_status`; falls back to the audit action + latest review when the
+ * field is not supplied by an older backend.
+ */
+export function statusOf(invoice: Invoice): InvoiceStatus {
+  const live = invoice.posting_status;
+  if (live && POSTING_STATUS_META[live]) {
+    return { ...POSTING_STATUS_META[live], postingStatus: live };
+  }
+
+  const action = invoice.audit?.action;
+  if (action === "AUTO_POST") {
+    return {
+      bucket: "auto",
+      label: "Auto-posted",
+      tone: "leaf",
+      postingStatus: POSTING_AUTO_POSTED,
+    };
+  }
+  const last = lastReview(invoice);
+  if (!last) {
+    return {
+      bucket: "unresolved",
+      label: "Blocked for review",
+      tone: "brass",
+      postingStatus: POSTING_BLOCKED,
+    };
+  }
+  const posting = VERDICT_TO_POSTING[last.verdict];
+  const fallback = REVIEW_LABELS[last.verdict] ?? {
+    label: `Reviewed · ${last.verdict}`,
+    tone: "slate" as const,
+  };
+  return {
+    bucket: fallback.bucket,
+    label: fallback.label,
+    tone: fallback.tone,
+    postingStatus: posting,
+  };
+}
+
+export const REVIEW_LABELS: Record<
+  string,
+  { bucket: Bucket; label: string; tone: InvoiceStatus["tone"] }
+> = {
+  approve: { bucket: "reviewed", label: "Exception approved", tone: "leaf" },
+  hold: { bucket: "reviewed", label: "Payment on hold", tone: "brass" },
+  escalate: { bucket: "reviewed", label: "Escalated", tone: "clay" },
+};
+
+export function bucketCounts(invoices: Invoice[]) {
+  return invoices.reduce(
+    (acc, inv) => {
+      acc[statusOf(inv).bucket] += 1;
+      return acc;
+    },
+    { unresolved: 0, reviewed: 0, auto: 0 } as Record<Bucket, number>
+  );
+}
+
+/**
+ * Demo-company control catalog, mirroring apilot/policy.py ROUTES so the UI
+ * and the API speak the same rule/owner/action names.
+ */
+export type Control = {
+  id: string;
+  rule: string; // policy_rule name (title-cased in the UI)
+  findingTypes: string[];
+  owner: string; // review_owner
+  action: string; // recommended_action
+};
+
+export const CLEAN_RULE = "Clean three-way match";
+export const CLEAN_ACTION = "Post to ERP";
 
 export const CONTROLS: Control[] = [
   {
-    id: "match",
-    name: "Three-way match",
-    rule: "Quantity, unit price and total must match the purchase order.",
-    findingTypes: ["PRICE_MISMATCH", "QTY_MISMATCH", "TAX_MISMATCH"],
+    id: "price",
+    rule: "Price tolerance",
+    findingTypes: ["PRICE_MISMATCH"],
+    owner: "AP / Procurement",
+    action: "Reconcile unit price with procurement",
   },
   {
-    id: "po-vendor",
-    name: "PO & approved vendor",
-    rule: "Every invoice must reference an open purchase order from an approved vendor.",
-    findingTypes: ["MISSING_PO", "UNKNOWN_VENDOR"],
+    id: "qty",
+    rule: "Quantity match",
+    findingTypes: ["QTY_MISMATCH"],
+    owner: "Receiving",
+    action: "Verify received quantity",
   },
   {
     id: "receipt",
-    name: "Goods-receipt evidence",
-    rule: "The goods receipt must be on file before payment is scheduled.",
+    rule: "Receipt check",
     findingTypes: ["MISSING_RECEIPT"],
+    owner: "Receiving",
+    action: "Confirm goods receipt",
+  },
+  {
+    id: "po",
+    rule: "PO check",
+    findingTypes: ["MISSING_PO"],
+    owner: "Procurement / AP",
+    action: "Locate or create the purchase order",
   },
   {
     id: "duplicate",
-    name: "Duplicate detection",
-    rule: "No invoice may bill goods or services that were already paid.",
+    rule: "Duplicate check",
     findingTypes: ["DUPLICATE_INVOICE"],
+    owner: "AP Manager",
+    action: "Review the duplicate invoice pair",
+  },
+  {
+    id: "tax",
+    rule: "Tax uplift check",
+    findingTypes: ["TAX_MISMATCH"],
+    owner: "Tax / Controller",
+    action: "Confirm tax handling with Tax/Controller",
+  },
+  {
+    id: "vendor",
+    rule: "Vendor & currency check",
+    findingTypes: ["UNKNOWN_VENDOR"],
+    owner: "Vendor Master / AP Manager",
+    action: "Validate vendor master and currency",
   },
 ];
 
@@ -64,39 +181,31 @@ export const FINDING_LABELS: Record<string, string> = {
 };
 
 export function findingLabel(type: string): string {
-  return FINDING_LABELS[type] ?? type.replaceAll("_", " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  return FINDING_LABELS[type] ?? titleCase(type);
 }
 
 export function controlForFinding(type: string): Control | undefined {
   return CONTROLS.find((c) => c.findingTypes.includes(type));
 }
 
+/** Humanized name of an invoice's failing control (API policy_rule). */
+export function controlLabel(invoice: Invoice): string {
+  const rule = invoice.policy_rule?.trim();
+  if (rule) return titleCase(rule);
+  const finding = invoice.audit?.findings?.[0];
+  return finding ? (controlForFinding(finding.type)?.rule ?? findingLabel(finding.type)) : CLEAN_RULE;
+}
+
+export function recommendedActionOf(invoice: Invoice): string {
+  const action = invoice.recommended_action?.trim();
+  if (action) return action;
+  if (invoice.audit?.suggested_resolution) return invoice.audit.suggested_resolution;
+  return CLEAN_ACTION;
+}
+
 export function lastReview(invoice: Invoice): Review | undefined {
   const reviews = invoice.reviews ?? [];
   return reviews.length ? reviews[reviews.length - 1] : undefined;
-}
-
-export function statusOf(invoice: Invoice): InvoiceStatus {
-  const action = invoice.audit?.action;
-  if (action === "AUTO_POST") {
-    return { bucket: "auto", label: "Auto-posted", tone: "leaf" };
-  }
-  const last = lastReview(invoice);
-  if (!last) {
-    return { bucket: "unresolved", label: "Unresolved · awaiting decision", tone: "brass" };
-  }
-  const meta = REVIEW_LABELS[last.verdict] ?? { label: `Reviewed · ${last.verdict}`, tone: "slate" as const };
-  return { bucket: "reviewed", label: meta.label, tone: meta.tone, verdict: last.verdict };
-}
-
-export function bucketCounts(invoices: Invoice[]) {
-  return invoices.reduce(
-    (acc, inv) => {
-      acc[statusOf(inv).bucket] += 1;
-      return acc;
-    },
-    { unresolved: 0, reviewed: 0, auto: 0 } as Record<Bucket, number>
-  );
 }
 
 /** Open (unresolved) controls -> count of exceptions currently failing them. */

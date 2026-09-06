@@ -178,9 +178,21 @@ export function ExtractionCard({ capability }: { capability: ExtractionCapabilit
             </ul>
           )}
 
-          {result.suggested_resolution && (
+          {(result.policy_rule || result.review_owner) && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {result.policy_rule ? (
+                <Badge tone="slate">Rule: {titleCase(result.policy_rule)}</Badge>
+              ) : null}
+              {result.review_owner ? (
+                <Badge tone="neutral">Owner: {titleCase(result.review_owner)}</Badge>
+              ) : null}
+            </div>
+          )}
+
+          {(result.recommended_action || result.suggested_resolution) && (
             <p className="mt-3 border-t border-border pt-2.5 text-sm">
-              <span className="font-semibold text-accent">Recommended:</span> {result.suggested_resolution}
+              <span className="font-semibold text-accent">Recommended:</span>{" "}
+              {result.recommended_action ?? result.suggested_resolution}
             </p>
           )}
         </div>

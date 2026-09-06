@@ -28,10 +28,13 @@ optional input helper and is never a decision-maker.
 - **Decision engine** (`decide.py`): no findings ⇒ `AUTO_POST`
   (confidence 1.0); any finding ⇒ `HUMAN_REVIEW` (confidence 0.0) with one
   suggested-resolution phrase per distinct finding type.
-- **Evidence, not verdicts**: the Control Desk shows the exact finding, the
-  offending invoice/PO/receipt cells side by side, and a suggested
-  resolution. Reviewers approve / hold / escalate with a reason; every action
-  is timestamped into a review history.
+- **Evidence, not verdicts**: the Control Desk shows the live posting status
+  (auto-posted / blocked for review / exception approved / on hold /
+  escalated), the exact failed policy rule and its finance owner, the
+  offending invoice/PO/receipt cells side by side, and a recommended action.
+  Reviewers approve exceptions, hold payment, or escalate — each with a
+  **required reason** — and every decision is timestamped into the audit
+  trail.
 - **Optional LLM extraction** (`extract.py`): paste raw invoice text and the
   model returns a structured `Invoice` (one OpenAI-compatible call,
   temperature 0, one retry). The result is fed into the *same* deterministic
@@ -59,7 +62,7 @@ it compares the audit trail against ground-truth labels. On this controlled
 set it reports **overall action accuracy = 1.0** with per-type
 precision/recall/F1 = 1.0 across all seven types (CLEAN, PRICE_MISMATCH,
 QTY_MISMATCH, MISSING_PO, DUPLICATE_INVOICE, MISSING_RECEIPT,
-TAX_MISMATCH). 45 unit tests pass.
+TAX_MISMATCH). 68 unit tests pass.
 
 > **Honest framing (important):** 1.0 accuracy is expected here, not
 > impressive — the deterministic engine is scored against a closed synthetic
@@ -90,28 +93,37 @@ documented above.
 ## 5. Control Desk (deliverable demo surface)
 
 - **Next.js 15 + React 19 + TypeScript + Tailwind** frontend in `frontend/`
-  (proxy: `/api/*` → `127.0.0.1:8000`).
+  (proxy: `/api/*` → `API_ORIGIN`, default `127.0.0.1:8000`).
 - **FastAPI** backend in `apilot/api.py`: `GET /api/summary`,
-  `GET /api/invoices`, `POST /api/review/{id}`, `POST /api/extract`; serves
-  `static/index.html` at `/`.
-- UI panels: summary cards; invoice queue with *Needs review* / *All
-  invoices* / *Auto-posted* filters and search; invoice detail with **Exact
-  findings**, **Comparable evidence** (invoice vs. PO vs. receipt qty),
-  **review history**, and **Approve / Hold / Escalate** actions.
+  `GET /api/invoices`, `GET /api/capabilities`, `GET /api/evaluation`,
+  `POST /api/review/{id}`, `POST /api/extract`; serves `static/index.html`
+  at `/`.
+- UI panels: **four metric cards** (Processed / Auto-posted / Unresolved /
+  Reviewed, clickable to scope the queue); the **review queue** with
+  *Unresolved* / *Reviewed* / *Auto-posted* scope tabs plus search and a
+  failed-policy filter; the invoice detail with **posting status**, **failed
+  policy** and finance **owner**, **Evidence — actual vs expected**
+  (invoice vs. PO vs. receipt qty), a **recommended action**, and
+  **Approve exception / Hold payment / Escalate** buttons that require a
+  reason; the **control policy** card; and the **extraction decision** card
+  (dry run, disabled unless `GET /api/capabilities` reports extraction
+  enabled).
 
 ## 6. Demo policy (how to demo honestly)
 
 - Demo the **controlled book**: 120 / 80 / 40 / 66.7% are the committed
-  numbers — read them off the live summary cards.
-- Demo the **exception path**: open a "Needs review" invoice, read the exact
-  finding and evidence table, then approve/hold/escalate with a reason and
-  watch it appear in the review history.
-- Demo the **auto-post path**: switch to "Auto-posted", open a clean invoice,
-  show no findings ⇒ `AUTO_POST`.
+  numbers — read them off the live metric cards.
+- Demo the **exception path**: the *Unresolved* queue is the default scope.
+  Open an invoice, read the failed policy, owner, and the evidence table,
+  then approve/hold/escalate with a reason and watch the invoice leave the
+  unresolved queue as the metric counts update.
+- Demo the **auto-post path**: switch to the *Auto-posted* scope, open a
+  clean invoice, show no findings ⇒ `AUTO_POSTED`.
 - Show the **honest evaluation**: `python -m apilot.evaluate` and the
   evaluator's own "ASSUMPTION … not measured" note on time savings.
-- Only demo **LLM extraction** if `APILOT_LLM_KEY` is configured; otherwise
-  skip it and say so.
+- The **extraction card** is disabled until the backend reports extraction
+  enabled (`GET /api/capabilities`, i.e. `APILOT_LLM_KEY` configured);
+  otherwise skip it and say so.
 - Never imply ERP posting, real data, or production accuracy. See Section 8.
 
 ## 7. AO build process (how this was built)
@@ -122,24 +134,24 @@ workers build flow, not a single prompt:
 - The orchestrator session decomposed the build into task-sized worker
   sessions for the `apilot` project.
 - Each **worker session ran in an isolated git worktree on its own AO feature
-  branch** (`ao/apilot-N/root`), so parallel work never collided.
+  branch**, so parallel work never collided.
 - Workers implemented in conventional commits, ran the full `pytest` suite as
   the quality gate before finishing, and reported results back to the
   orchestrator.
-- The **AO project dashboard / session list** shows the live evidence: the
-  `apilot` project with **9 sessions total — 1 orchestrator (`apilot-1`) + 8
-  workers (`apilot-2` … `apilot-9`)** — covering repo skeleton, data models,
-  the synthetic labeled dataset, three-way matcher, decision engine, audit
-  trail, exception detection, evaluation, the review dashboard, the Control
-  Desk UI, and (this) submission kit.
-- Git history on `main` reflects the same sequence: 14 commits from
-  "chore: bootstrap repo" through "feat: build APilot review dashboard"
-  (2026-09-05 → 2026-09-06), each independently reviewed/verified by its
-  worker before landing.
+- The **AO project dashboard / session list** shows the live evidence: open
+  the `apilot` project's Sessions view and read the orchestrator + worker
+  session count straight off the screen at demo time (sessions covered the
+  repo skeleton, data models, the synthetic labeled dataset, three-way
+  matcher, decision engine, policy routing, audit trail, exception
+  detection, evaluation, the review dashboard, the Control Desk UI, and this
+  submission kit).
+- Git history on `main` reflects the same sequence — from "chore: bootstrap
+  repo" through the Control Desk and policy-aware routing commits — each
+  independently reviewed/verified by its worker before landing. Read the live
+  commit count with `git log --oneline main` rather than quoting a number.
 
-The AO session count is read live from the dashboard during the demo (see
-[DEMO_SCRIPT.md](DEMO_SCRIPT.md)); treat the numbers shown on screen as
-authoritative at demo time.
+Treat every count in this section as **live on the dashboard / git history**;
+never quote a hardcoded session or commit number.
 
 ## 8. Explicit limitations
 
@@ -189,7 +201,7 @@ because this submission does not rely on unverified external numbers.
 pip install -e .            # backend deps (repo root)
 python -m apilot            # API + HTML dashboard on http://127.0.0.1:8000
 cd frontend && npm install && npm run dev   # Control Desk on http://localhost:3000
-python -m pytest            # 45 tests
+python -m pytest            # 68 tests
 python -m apilot.evaluate   # read-only evaluation of the audit trail
 ```
 

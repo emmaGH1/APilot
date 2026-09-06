@@ -14,10 +14,12 @@ import { reviewInvoice } from "@/lib/api";
 import {
   evidenceOf,
   controlForFinding,
+  controlLabel,
   findingLabel,
   formatMoney,
   formatTimestamp,
   lastReview,
+  recommendedActionOf,
   severityTone,
   statusOf,
   titleCase,
@@ -79,7 +81,8 @@ export function InvoiceDetail({
   const evidence = evidenceOf(invoice);
   const findings = invoice.audit?.findings ?? [];
   const last = lastReview(invoice);
-  const owner = invoice.owner?.trim() || "Unassigned";
+  const owner = invoice.review_owner?.trim() || "Unassigned";
+  const controlName = controlLabel(invoice);
   const canDecide = status.bucket === "unresolved";
 
   const decide = async (verdict: (typeof DECISIONS)[number]["verdict"]) => {
@@ -137,18 +140,18 @@ export function InvoiceDetail({
             <dd className="mt-1 text-sm font-medium">{owner}</dd>
           </div>
           <div>
+            <dt className="label-overline">Failed policy</dt>
+            <dd className="mt-1 text-sm font-medium leading-snug">
+              {findings.length > 0 ? controlName : "None"}
+            </dd>
+          </div>
+          <div>
             <dt className="label-overline">Line items</dt>
             <dd className="mt-1 text-sm font-medium">{invoice.line_items.length}</dd>
           </div>
           <div>
             <dt className="label-overline">Currency</dt>
             <dd className="mt-1 text-sm font-medium">{invoice.currency}</dd>
-          </div>
-          <div>
-            <dt className="label-overline">Recommended action</dt>
-            <dd className="mt-1 text-sm font-medium leading-snug">
-              {invoice.audit?.suggested_resolution ?? "Human review required"}
-            </dd>
           </div>
         </dl>
       </div>
@@ -180,7 +183,7 @@ export function InvoiceDetail({
                         {findingLabel(finding.type)}
                       </span>
                       <span className="flex items-center gap-1.5">
-                        {control && <Badge tone="slate">{control.name}</Badge>}
+                        {control && <Badge tone="slate">{control.rule}</Badge>}
                         <Badge tone={tone}>{titleCase(String(finding.severity))}</Badge>
                       </span>
                     </div>
@@ -311,20 +314,18 @@ export function InvoiceDetail({
         </section>
 
         {/* Recommended action */}
-        {invoice.audit?.suggested_resolution && (
-          <section
-            aria-labelledby="resolution-heading"
-            className="rounded-lg border border-accent/30 bg-accent/5 p-4"
-          >
-            <h3 id="resolution-heading" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-accent">
-              <ArrowRight size={14} aria-hidden="true" />
-              Recommended action
-            </h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-foreground">
-              {invoice.audit.suggested_resolution}
-            </p>
-          </section>
-        )}
+        <section
+          aria-labelledby="resolution-heading"
+          className="rounded-lg border border-accent/30 bg-accent/5 p-4"
+        >
+          <h3 id="resolution-heading" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em] text-accent">
+            <ArrowRight size={14} aria-hidden="true" />
+            Recommended action
+          </h3>
+          <p className="mt-1.5 text-sm leading-relaxed text-foreground">
+            {recommendedActionOf(invoice)}
+          </p>
+        </section>
 
         {/* Decision */}
         {canDecide ? (

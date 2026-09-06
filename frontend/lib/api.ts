@@ -11,10 +11,8 @@ export type Review = {
 };
 
 /** Optional additive API context (company/policy/extraction capability). */
-export type DeskContext = {
-  company?: { name?: string } | null;
-  policy?: Array<{ id?: string; name?: string; rule?: string }> | null;
-  extraction?: { enabled?: boolean; note?: string } | null;
+export type Capabilities = {
+  extraction_enabled?: boolean;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -40,10 +38,10 @@ export async function getInvoices(): Promise<Invoice[]> {
   return request<Invoice[]>("/api/invoices");
 }
 
-/** Additive context endpoint; returns null when the backend does not provide it. */
-export async function getContext(): Promise<DeskContext | null> {
+/** Additive capability endpoint; returns null when the backend does not provide it. */
+export async function getCapabilities(): Promise<Capabilities | null> {
   try {
-    return await request<DeskContext>("/api/context");
+    return await request<Capabilities>("/api/capabilities");
   } catch {
     return null;
   }

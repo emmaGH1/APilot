@@ -39,6 +39,10 @@ export type Audit = {
   confidence?: number;
   findings?: Finding[];
   suggested_resolution?: string;
+  policy_rule?: string;
+  review_owner?: string;
+  recommended_action?: string;
+  posting_status?: string;
 };
 
 export type Invoice = {
@@ -52,9 +56,12 @@ export type Invoice = {
   audit?: Audit | null;
   source_docs: SourceDocument;
   reviews: Review[];
-  // Additive fields supplied by the API companion task. Frontend falls back
-  // when absent, so it must tolerate missing/optional values.
-  owner?: string | null;
+  // Policy-aware additive fields from the API (apilot/policy.py). The frontend
+  // falls back to the audit/action/reviews when they are absent.
+  policy_rule?: string | null;
+  review_owner?: string | null;
+  recommended_action?: string | null;
+  posting_status?: string | null;
 };
 
 export type ExtractionResult = {
@@ -62,6 +69,10 @@ export type ExtractionResult = {
   findings?: Finding[];
   action?: string;
   confidence?: number;
+  policy_rule?: string;
+  review_owner?: string;
+  recommended_action?: string;
+  posting_status?: string;
   suggested_resolution?: string;
   po?: SourceDocument["po"];
   receipt?: SourceDocument["receipt"];

@@ -8,7 +8,7 @@ import {
   BUCKETS,
   CONTROLS,
   bucketCounts,
-  controlForFinding,
+  controlLabel,
   formatMoney,
   findingLabel,
   statusOf,
@@ -122,7 +122,7 @@ export function InvoiceQueue({
             <option value="all">All controls</option>
             {CONTROLS.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.rule}
               </option>
             ))}
           </select>
@@ -152,7 +152,6 @@ export function InvoiceQueue({
             {shown.map((inv) => {
               const status = statusOf(inv);
               const finding = inv.audit?.findings?.[0];
-              const control = finding ? controlForFinding(finding.type) : undefined;
               const active = selected === inv.id;
               return (
                 <li key={inv.id}>
@@ -181,7 +180,7 @@ export function InvoiceQueue({
                       ) : status.bucket === "reviewed" ? (
                         <Badge tone={status.tone}>{status.label}</Badge>
                       ) : (
-                        <span className="shrink-0 text-accent">{control?.name ?? "Control check"}</span>
+                        <span className="shrink-0 text-accent">{controlLabel(inv)}</span>
                       )}
                     </div>
                     {status.bucket === "unresolved" && finding && (

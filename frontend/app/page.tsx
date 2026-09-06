@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileSearch, RadioTower, ShieldCheck, Workflow } from "lucide-react";
-import { getContext, getInvoices, type DeskContext } from "@/lib/api";
+import { getCapabilities, getInvoices, type Capabilities } from "@/lib/api";
 import { statusOf, type Bucket } from "@/lib/control";
 import type { Invoice } from "@/types/ap";
 import { DeskHeader } from "@/components/desk-header";
@@ -11,6 +11,9 @@ import { InvoiceQueue } from "@/components/invoice-queue";
 import { InvoiceDetail } from "@/components/invoice-detail";
 import { PolicyPanel } from "@/components/policy-panel";
 import { ExtractionCard } from "@/components/extraction-card";
+
+const EXTRACTION_DISABLED_NOTE =
+  "No LLM API key (APILOT_LLM_KEY) is configured on the API server, so invoice extraction is unavailable.";
 
 const PROPOSITIONS = [
   {
@@ -34,7 +37,7 @@ export default function Home() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [bucket, setBucket] = useState<Bucket>("unresolved");
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [context, setContext] = useState<DeskContext | null>(null);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -47,9 +50,9 @@ export default function Home() {
     else setLoading(true);
     setError("");
     try {
-      const [data, ctx] = await Promise.all([getInvoices(), getContext()]);
+      const [data, caps] = await Promise.all([getInvoices(), getCapabilities()]);
       setInvoices(data);
-      setContext(ctx);
+      setCapabilities(caps);
       setUpdatedAt(new Date());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load the control desk.");
@@ -105,14 +108,16 @@ export default function Home() {
     [invoices, counts]
   );
 
-  const companyName = context?.company?.name;
   const extractionCapability = useMemo(() => {
-    const extraction = context?.extraction;
-    return {
-      available: extraction ? (extraction.enabled ?? false) : true,
-      note: extraction?.note,
-    };
-  }, [context]);
+    if (!capabilities) {
+      // Older backend without /api/capabilities: allow the attempt; the card
+      // self-disables if the API reports no LLM key.
+      return { available: true };
+    }
+    return capabilities.extraction_enabled
+      ? { available: true }
+      : { available: false, note: EXTRACTION_DISABLED_NOTE };
+  }, [capabilities]);
 
   const handleBucket = (next: Bucket) => {
     setBucket(next);
@@ -128,7 +133,6 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       <DeskHeader
-        companyName={companyName}
         updatedAt={updatedAt}
         refreshing={refreshing}
         onRefresh={() => void load(true)}
@@ -225,7 +229,7 @@ export default function Home() {
 
             {!loading && (
               <div className="grid items-start gap-6 lg:grid-cols-2">
-                <PolicyPanel invoices={invoices} companyName={companyName} />
+                <PolicyPanel invoices={invoices} />
                 <ExtractionCard capability={extractionCapability} />
               </div>
             )}

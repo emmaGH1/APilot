@@ -24,7 +24,7 @@ LLM extraction layer) is strictly an input helper — it never decides.
 | Auto-posted touchless (`AUTO_POST`) | **80** — **66.7% touchless** |
 | Routed to human review (`HUMAN_REVIEW`) | **40** — 33.3% |
 | Exception mix (of the 40) | MISSING_RECEIPT 8 · PRICE_MISMATCH 7 · DUPLICATE_INVOICE 7 · QTY_MISMATCH 6 · TAX_MISMATCH 6 · MISSING_PO 6 |
-| Unit tests | **45 passing** (`python -m pytest`) |
+| Unit tests | **68 passing** (`python -m pytest`) |
 
 Every number above is reproducible from the committed dataset
 (`data/invoices.json`, `data/labels.json`, `data/audit.json`) and the read-only
@@ -35,19 +35,30 @@ evaluator — nothing is invented.
 The Control Desk UI gives the people accountable for the ledger what they
 need:
 
-- **Summary cards** — invoices processed, needing human review, and auto-posted.
-- **Invoice queue** — filter to *Needs review*, *All invoices*, or
-  *Auto-posted*; search by invoice, vendor, or number.
-- **Exact findings** — each exception states the rule that fired
-  (price/quantity/PO/receipt/duplicate/tax/vendor), its severity, and a
-  human-readable detail.
-- **Comparable evidence** — a line-by-line table of invoice vs. PO vs.
-  received quantity, with the offending cells highlighted.
-- **Review actions + audit trail** — approve / hold / escalate with an
-  optional reason; every action lands in a timestamped review history.
-- **Extract an invoice** — optional: paste raw invoice text and let an LLM
-  produce a structured invoice that is then run through the same deterministic
-  matcher (an AI *input* helper only; it never decides).
+- **Metric cards** — invoices processed, auto-posted, unresolved, and
+  reviewed in the current cycle; click a card to scope the queue.
+- **Review queue** — scope tabs for *Unresolved*, *Reviewed*, or *Auto-posted*,
+  plus search and a failed-policy filter.
+- **Posting status & failed policy** — each invoice shows its live posting
+  status (`AUTO_POSTED` / `BLOCKED_FOR_REVIEW` / `OVERRIDE_APPROVED` /
+  `ON_HOLD` / `ESCALATED`) and the exact policy rule that fired
+  (price tolerance, qty match, receipt check, PO check, duplicate check, tax
+  uplift check, vendor & currency check), its severity, and a human-readable
+  detail.
+- **Policy-aware routing** — every exception names its finance owner
+  (`review_owner`, e.g. AP/procurement, Receiving, Tax/controller) and a
+  recommended action (`recommended_action`).
+- **Evidence — actual vs expected** — a line-by-line table of invoice vs. PO
+  vs. received quantity, with the offending cells highlighted.
+- **Decide with a required reason** — Approve exception / Hold payment /
+  Escalate; a reason is mandatory and every decision lands in the audit trail.
+- **Control policy card** — the demo company's seven control rules with their
+  current open-exception counts.
+- **Extract an invoice** — a dry-run card: paste raw invoice text and let an
+  LLM produce a structured invoice that is then run through the same
+  deterministic matcher (an AI *input* helper only; it never decides). The
+  card is disabled until the backend reports extraction enabled via
+  `GET /api/capabilities` (`APILOT_LLM_KEY` set).
 
 Design rule: **controllers see the evidence, not just a verdict.** An
 auto-post is only ever a "no findings" result, and any invoice can still be
@@ -67,6 +78,9 @@ raw invoice text (optional)
    │ decide.py    → no findings ⇒ AUTO_POST (confidence 1.0);                 │
    │                any finding ⇒ HUMAN_REVIEW (confidence 0.0) + one         │
    │                suggested-resolution phrase per distinct finding type     │
+   │ policy.py    → routes each exception to a finance owner with a           │
+   │                policy_rule / review_owner / recommended_action and a     │
+   │                live posting_status                                       │
    └──────────────────────────────────────────────────────────────────────────┘
         │
         ▼
@@ -87,13 +101,13 @@ raw invoice text (optional)
 ### Repository layout
 
 ```
-apilot/            Python package: models, data, matcher, decide, extract,
-                   audit, evaluate, api
+apilot/            Python package: models, data, matcher, decide, policy,
+                   extract, audit, evaluate, api
 data/              Committed demo book: pos.json, receipts.json, invoices.json,
                    labels.json, audit.json (+ runtime reviews.json, see limits)
 static/index.html  Single-file HTML dashboard (served by the API at /)
 frontend/          Next.js 15 + React 19 + TypeScript + Tailwind Control Desk
-tests/             pytest suite (45 tests, incl. per-module + API + extract)
+tests/             pytest suite (68 tests, incl. per-module + API + extract)
 pyproject.toml     Python package metadata (FastAPI, uvicorn, pydantic, pytest)
 ```
 
@@ -130,8 +144,9 @@ npm install
 npm run dev               # http://localhost:3000
 ```
 
-`frontend/next.config.ts` rewrites `/api/*` to `http://127.0.0.1:8000/api/*`,
-so the backend from step 1 must be running. Open <http://localhost:3000>.
+`frontend/next.config.ts` rewrites `/api/*` to the `API_ORIGIN` environment
+variable (default `http://127.0.0.1:8000`), so the backend from step 1 must be
+running. Open <http://localhost:3000>.
 
 ### Environment variables (optional, names only)
 
@@ -145,10 +160,13 @@ by the optional LLM text-extraction feature (`POST /api/extract`). Copy
 | `APILOT_LLM_BASE_URL` | OpenAI-compatible API base URL | `https://api.openai.com/v1` |
 | `APILOT_LLM_MODEL` | Model name | `gpt-4o-mini` |
 
+For the Next.js desk, `API_ORIGIN` points the `/api/*` rewrites at the FastAPI
+backend (default `http://127.0.0.1:8000`); see `frontend/next.config.ts`.
+
 ### Reproducing the demo book and results
 
 ```bash
-python -m pytest          # 45 tests
+python -m pytest          # 68 tests
 python -m apilot.data     # regenerate the 120-invoice synthetic book (seed 42)
 python -m apilot.audit    # re-run the deterministic audit -> data/audit.json
 python -m apilot.evaluate # read-only evaluation vs. ground-truth labels
