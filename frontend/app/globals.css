@@ -3,7 +3,76 @@
 @tailwind utilities;
 
 @layer base {
-  :root { --background: 40 25% 98%; --foreground: 80 5% 16%; --card: 0 0% 100%; --card-foreground: 80 5% 16%; --primary: 150 35% 28%; --primary-foreground: 40 25% 98%; --muted: 40 15% 94%; --muted-foreground: 30 5% 45%; --border: 35 15% 87%; --radius: 0.5rem; }
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; }
+  :root {
+    /* Warm finance palette (HSL triplets). */
+    --background: 42 33% 96%;
+    --foreground: 70 7% 17%;
+    --card: 45 40% 99%;
+    --card-foreground: 70 7% 17%;
+    --primary: 156 33% 26%;
+    --primary-foreground: 42 33% 97%;
+    --accent: 38 52% 40%;
+    --accent-foreground: 42 33% 98%;
+    --success: 148 33% 34%;
+    --success-foreground: 42 33% 98%;
+    --danger: 12 53% 44%;
+    --danger-foreground: 42 33% 98%;
+    --muted: 40 25% 91%;
+    --muted-foreground: 40 7% 40%;
+    --border: 38 22% 84%;
+    --ring: 156 33% 26%;
+    --radius: 0.625rem;
+
+    /* Local/system font stacks (no webfont downloads). */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", "Noto Serif",
+      serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+      monospace;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0.15);
+  }
+
+  ::selection {
+    background: hsl(var(--accent) / 0.25);
+  }
+}
+
+@layer utilities {
+  /* Paper-card surface used across the desk. */
+  .panel {
+    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+  }
+
+  .label-overline {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,6 +1,207 @@
 "use client";
-import { useState } from "react";
+
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  BUCKETS,
+  CONTROLS,
+  bucketCounts,
+  controlForFinding,
+  formatMoney,
+  findingLabel,
+  statusOf,
+  type Bucket,
+} from "@/lib/control";
 import type { Invoice } from "@/types/ap";
-export function InvoiceQueue({ invoices, selected, onSelect, filter, onFilterChange }: { invoices: Invoice[]; selected?: string; onSelect: (i: Invoice) => void; filter: "review" | "all" | "auto"; onFilterChange: (filter: "review" | "all" | "auto") => void }) { const [search, setSearch] = useState(""); const filtered = invoices.filter(i => [i.id, i.vendor, i.invoice_number].some(v => v.toLowerCase().includes(search.toLowerCase()))); const tabs = [{ id: "review", label: "Needs review" }, { id: "all", label: "All invoices" }, { id: "auto", label: "Auto-posted" }] as const; return <section className="min-w-0 border border-stone-200 bg-white"><div className="border-b border-stone-200 p-5"><div className="flex items-center justify-between"><h2 className="font-serif text-2xl">Invoice queue</h2><span className="rounded-full bg-[#f9ebd5] px-2.5 py-1 text-xs font-semibold text-[#8b5a16]">{filtered.length} shown</span></div><div className="mt-5 flex gap-1 overflow-x-auto border-b border-stone-200 text-sm">{tabs.map(tab => <button key={tab.id} onClick={() => onFilterChange(tab.id)} className={`shrink-0 px-2 pb-3 ${filter === tab.id ? "border-b-2 border-[#244b3b] font-semibold text-[#244b3b]" : "text-stone-400"}`}>{tab.label}</button>)}</div><div className="relative mt-4"><Search className="absolute left-3 top-2.5 text-stone-400" size={17}/><Input value={search} onChange={e => setSearch(e.target.value)} className="border-stone-200 pl-9" placeholder="Search invoice, vendor, or number" /></div></div><div>{filtered.length === 0 ? <p className="p-8 text-sm text-stone-500">No matching invoices.</p> : filtered.map(i => <button key={i.id} onClick={() => onSelect(i)} className={`block w-full border-b border-stone-100 p-5 text-left hover:bg-stone-50 ${selected === i.id ? "border-l-4 border-l-[#244b3b] bg-[#f3f7f3] pl-4" : ""}`}><div className="flex justify-between gap-3"><div><p className="font-semibold">{i.vendor}</p><p className="mt-1 text-xs text-stone-500">{i.id} · {i.invoice_number}</p></div><p className="font-semibold">{i.currency} {i.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p></div><p className="mt-3 text-xs text-[#a66b18]">{i.audit?.action?.replaceAll("_", " ") ?? "HUMAN REVIEW"}</p></button>)}</div></section> }
+import { cn } from "@/lib/utils";
+
+const QUEUE_LIMIT = 40;
+
+export function InvoiceQueue({
+  invoices,
+  bucket,
+  onBucketChange,
+  selected,
+  onSelect,
+}: {
+  invoices: Invoice[];
+  bucket: Bucket;
+  onBucketChange: (bucket: Bucket) => void;
+  selected?: string;
+  onSelect: (invoice: Invoice) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [controlFilter, setControlFilter] = useState<string>("all");
+
+  const counts = useMemo(() => bucketCounts(invoices), [invoices]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return invoices
+      .filter((inv) => statusOf(inv).bucket === bucket)
+      .filter((inv) => {
+        if (controlFilter !== "all") {
+          const types = inv.audit?.findings?.map((f) => f.type) ?? [];
+          const control = CONTROLS.find((c) => c.id === controlFilter);
+          const hit = control ? types.some((t) => control.findingTypes.includes(t)) : false;
+          if (!hit) return false;
+        }
+        if (!q) return true;
+        const haystack = [inv.id, inv.vendor, inv.invoice_number, inv.po_number ?? ""]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+  }, [invoices, bucket, query, controlFilter]);
+
+  const shown = visible.slice(0, QUEUE_LIMIT);
+  const hiddenCount = visible.length - shown.length;
+
+  return (
+    <section className="panel flex min-h-0 flex-col overflow-hidden" aria-label="Review queue">
+      <div className="border-b border-border p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-xl tracking-tight sm:text-2xl">Review queue</h2>
+          <Badge tone="neutral" className="tabular-nums">
+            {counts[bucket]} in view
+          </Badge>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-1 rounded-lg bg-muted/60 p-1" aria-label="Queue scope">
+          {BUCKETS.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              aria-pressed={bucket === b.id}
+              onClick={() => onBucketChange(b.id)}
+              className={cn(
+                "flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-3",
+                bucket === b.id
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-border"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {b.label}
+              <span className={cn("ml-1.5 tabular-nums", bucket === b.id ? "text-accent" : "text-muted-foreground")}>
+                {counts[b.id]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              size={16}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <label htmlFor="queue-search" className="sr-only">
+              Search invoices
+            </label>
+            <Input
+              id="queue-search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9"
+              placeholder="Search vendor, invoice, or PO…"
+              autoComplete="off"
+            />
+          </div>
+          <label htmlFor="control-filter" className="sr-only">
+            Filter by failed control
+          </label>
+          <select
+            id="control-filter"
+            value={controlFilter}
+            onChange={(e) => setControlFilter(e.target.value)}
+            className="h-10 rounded-md border bg-card px-3 text-sm outline-none"
+          >
+            <option value="all">All controls</option>
+            {CONTROLS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {shown.length === 0 ? (
+          <div className="grid min-h-48 place-items-center p-6 text-center">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {bucket === "unresolved"
+                  ? "Queue cleared — no unresolved exceptions."
+                  : bucket === "reviewed"
+                    ? "No reviewed invoices yet."
+                    : "No auto-posted invoices."}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {bucket === "unresolved"
+                  ? "Every exception now has a recorded decision."
+                  : "Try a different filter or search."}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {shown.map((inv) => {
+              const status = statusOf(inv);
+              const finding = inv.audit?.findings?.[0];
+              const control = finding ? controlForFinding(finding.type) : undefined;
+              const active = selected === inv.id;
+              return (
+                <li key={inv.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(inv)}
+                    aria-current={active ? "true" : undefined}
+                    className={cn(
+                      "block w-full px-4 py-3.5 text-left transition-colors hover:bg-muted/40 sm:px-5",
+                      active && "border-l-[3px] border-l-primary bg-primary/5 hover:bg-primary/5"
+                    )}
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-sm font-semibold">{inv.vendor}</span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {formatMoney(inv.total, inv.currency)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                      <span className="truncate">
+                        {inv.id} · {inv.invoice_number}
+                        {inv.po_number ? ` · PO ${inv.po_number}` : ""}
+                      </span>
+                      {status.bucket === "auto" ? (
+                        <Badge tone="leaf">Auto-posted</Badge>
+                      ) : status.bucket === "reviewed" ? (
+                        <Badge tone={status.tone}>{status.label}</Badge>
+                      ) : (
+                        <span className="shrink-0 text-accent">{control?.name ?? "Control check"}</span>
+                      )}
+                    </div>
+                    {status.bucket === "unresolved" && finding && (
+                      <p className="mt-1.5 truncate text-xs text-muted-foreground">
+                        {findingLabel(finding.type)}
+                        {finding.detail ? ` — ${finding.detail}` : ""}
+                      </p>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {hiddenCount > 0 && (
+          <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground" role="status">
+            {hiddenCount} more match — narrow your search to see them.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}

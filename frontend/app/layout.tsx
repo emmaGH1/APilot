@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { DM_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
-const instrument = Instrument_Serif({ subsets: ["latin"], variable: "--font-serif", weight: "400" });
 
-export const metadata: Metadata = { title: "APilot", description: "Accounts payable intelligence dashboard" };
+export const metadata: Metadata = {
+  title: "APilot — Control Desk",
+  description:
+    "Accounts-payable exception control: APilot matches invoices to PO and goods-receipt evidence, posts clean invoices automatically, and frames every exception with the control that failed.",
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body className={`${dmSans.variable} ${instrument.variable}`}>{children}</body></html>;
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
 }
