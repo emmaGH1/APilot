@@ -9,6 +9,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from apilot.decide import decide
+from apilot.extract import (
+    ExtractionError,
+    extract_invoice,
+)
+from apilot.models import GoodsReceipt, Invoice, PurchaseOrder
+
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 STATIC_INDEX = Path(__file__).resolve().parents[1] / "static" / "index.html"
 REVIEWS_FILE = "reviews.json"
@@ -36,6 +43,10 @@ def _total(line_items) -> float:
 class ReviewRequest(BaseModel):
     verdict: Literal["approve", "hold", "escalate"]
     reason: str = ""
+
+
+class ExtractRequest(BaseModel):
+    text: str
 
 
 @app.get("/", response_class=FileResponse)
@@ -104,3 +115,34 @@ def review(invoice_id: str, body: ReviewRequest) -> dict:
         json.dump(reviews, fh, indent=2)
         fh.write("\n")
     return record
+
+
+@app.post("/api/extract")
+def extract(body: ExtractRequest) -> dict:
+    """Extract an invoice from raw text and run it through the decision engine."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="text must not be empty")
+
+    try:
+        invoice = extract_invoice(text)
+    except ExtractionError as exc:
+        raise HTTPException(status_code=502, detail=f"extraction failed: {exc}") from exc
+
+    pos = [PurchaseOrder.model_validate(d) for d in _read("pos.json")]
+    receipts = [GoodsReceipt.model_validate(d) for d in _read("receipts.json")]
+    invoices = [Invoice.model_validate(d) for d in _read("invoices.json")]
+    decision = decide(invoice, pos, receipts, invoices)
+
+    po = next((p for p in pos if invoice.po_number and p.po_number == invoice.po_number), None)
+    receipt = next(
+        (r for r in receipts if invoice.po_number and r.po_number == invoice.po_number), None
+    )
+    return {
+        "invoice": invoice.model_dump(),
+        "findings": [f.model_dump() for f in decision.findings],
+        "action": decision.action,
+        "suggested_resolution": decision.suggested_resolution,
+        "po": po.model_dump() if po else None,
+        "receipt": receipt.model_dump() if receipt else None,
+    }

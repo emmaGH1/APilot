@@ -57,6 +57,10 @@
   ul.history { margin: 6px 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
   #formMsg { font-size: 13px; min-height: 1.2em; }
   .okmsg { color: #1d6b2c; } .errmsg { color: #a4262c; }
+  textarea#extractText { width: 100%; max-width: 640px; font: inherit; padding: 8px 10px;
+                border: 1px solid #c3cdd6; border-radius: 6px; margin: 4px 0; }
+  #extractMsg { min-height: 1.2em; }
+  .row { display: flex; gap: 10px; align-items: center; }
 </style>
 </head>
 <body>
@@ -64,6 +68,13 @@
 <main>
   <section class="full cards" id="cards"></section>
   <div id="error"></div>
+  <section class="full panel">
+    <h2>Extract invoice from text</h2>
+    <textarea id="extractText" rows="4"
+      placeholder="Paste raw invoice text (vendor, invoice number, PO number, line items with sku/qty/unit price)..."></textarea>
+    <div class="row"><button id="extractBtn">Extract invoice</button></div>
+    <div id="extractMsg" class="muted"></div>
+  </section>
   <section class="full panel">
     <h2>Invoice queue</h2>
     <table>
@@ -180,18 +191,20 @@ function compareRows(inv) {
   });
 }
 
-function renderDetail(inv) {
+function renderDetail(inv, allowReview = true) {
   const panel = document.getElementById("detail");
   const f = firstFinding(inv);
   const findings = (inv.audit && inv.audit.findings) || [];
   const rows = compareRows(inv);
+  const conf = inv.audit && typeof inv.audit.confidence === "number"
+    ? ` (confidence ${inv.audit.confidence})` : "";
   panel.innerHTML = `
     <h2>${inv.id} ${badgeFor(f && f.type, f && f.severity)}
       <span class="muted">${escapeHtml(inv.vendor)} &middot; invoice ${escapeHtml(inv.invoice_number)}</span></h2>
     <div class="kv">
       <b>PO:</b> ${inv.po_number ? escapeHtml(inv.po_number) : "none referenced"} &middot;
       <b>Total:</b> ${fmtMoney(inv.total)} &middot;
-      <b>Action:</b> ${inv.audit ? escapeHtml(inv.audit.action) : "—"} (confidence ${inv.audit ? inv.audit.confidence : "—"})
+      <b>Action:</b> ${inv.audit ? escapeHtml(inv.audit.action) : "—"}${conf}
     </div>
     <h3>Lines: invoice vs PO vs received</h3>
     <table class="cmp">
@@ -207,6 +220,7 @@ function renderDetail(inv) {
       : `<p class="muted">No findings &mdash; matches PO and receipt.</p>`}
     <h3>Suggested resolution</h3>
     <p class="kv">${inv.audit ? escapeHtml(inv.audit.suggested_resolution) : "—"}</p>
+    ${allowReview ? `
     <h3>Review history (${inv.reviews.length})</h3>
     <ul class="history" id="reviewHistory">
       ${inv.reviews.length
@@ -224,8 +238,8 @@ function renderDetail(inv) {
       <textarea id="reason" name="reason" rows="2" placeholder="Reason (optional)"></textarea>
       <div><button type="submit" id="submitBtn">Submit review</button></div>
       <div id="formMsg"></div>
-    </form>`;
-  panel.querySelector("#reviewForm").addEventListener("submit", submitReview);
+    </form>` : `<p class="muted">Extracted invoice &mdash; not part of the committed dataset, so no review can be stored.</p>`}`;
+  if (allowReview) panel.querySelector("#reviewForm").addEventListener("submit", submitReview);
 }
 
 async function submitReview(ev) {
@@ -257,6 +271,47 @@ async function submitReview(ev) {
   }
 }
 
+async function runExtract() {
+  const text = document.getElementById("extractText").value;
+  const msg = document.getElementById("extractMsg");
+  const btn = document.getElementById("extractBtn");
+  msg.className = "muted";
+  msg.textContent = "";
+  btn.disabled = true;
+  try {
+    const data = await fetchJSON("/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const total = (data.invoice.line_items || []).reduce((s, l) => s + l.qty * l.unit_price, 0);
+    const pseudo = {
+      id: data.invoice.id,
+      vendor: data.invoice.vendor,
+      invoice_number: data.invoice.invoice_number,
+      po_number: data.invoice.po_number,
+      currency: data.invoice.currency,
+      line_items: data.invoice.line_items,
+      total: Math.round(total * 100) / 100,
+      audit: {
+        action: data.action,
+        findings: data.findings,
+        suggested_resolution: data.suggested_resolution,
+      },
+      source_docs: { po: data.po, receipt: data.receipt },
+      reviews: [],
+    };
+    msg.className = "okmsg";
+    msg.textContent = `Extracted ${data.invoice.id}: ${data.action}`;
+    renderDetail(pseudo, false);
+  } catch (err) {
+    msg.className = "errmsg";
+    msg.textContent = "Extraction failed: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function init() {
   try {
     const [summary, invoices] = await Promise.all([
@@ -272,6 +327,7 @@ async function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+document.getElementById("extractBtn").addEventListener("click", runExtract);
 </script>
 </body>
 </html>
