@@ -43,6 +43,35 @@
   body {
     @apply bg-background font-sans text-foreground antialiased;
     text-rendering: optimizeLegibility;
+    /*
+     * "Ledger paper with controlled depth": a layered ivory canvas with a
+     * very subtle ledger/grid texture (pure CSS gradients, no images) and a
+     * restrained forest-green + warm-gold radial atmosphere near the top.
+     * Radials use farthest-corner sizing; hairlines repeat on their own
+     * period. No background-attachment: fixed (mobile paint cost).
+     */
+    background-image:
+      radial-gradient(
+        900px 460px at 50% -12%,
+        hsl(156 33% 26% / 0.07),
+        transparent 62%
+      ),
+      radial-gradient(
+        760px 380px at 88% -8%,
+        hsl(38 52% 40% / 0.06),
+        transparent 58%
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        hsl(156 33% 26% / 0.032) 0 1px,
+        transparent 1px 44px
+      ),
+      repeating-linear-gradient(
+        to right,
+        hsl(38 52% 40% / 0.026) 0 1px,
+        transparent 1px 96px
+      );
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
   }
 
   :focus-visible {
@@ -57,9 +86,19 @@
 }
 
 @layer utilities {
-  /* Paper-card surface used across the desk. */
+  /*
+   * Paper-card surface used across the desk: translucent warm-white, a
+   * precise hairline border, and quiet layered depth. Translucency is plain
+   * color alpha — no backdrop blur, no glassmorphism spectacle.
+   */
   .panel {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+    @apply rounded-lg border text-card-foreground;
+    background-color: hsl(var(--card) / 0.92);
+    border-color: hsl(var(--border));
+    box-shadow:
+      inset 0 1px 0 hsl(45 40% 99% / 0.7),
+      0 1px 2px hsl(156 20% 20% / 0.04),
+      0 12px 32px -16px hsl(156 20% 20% / 0.16);
   }
 
   .label-overline {

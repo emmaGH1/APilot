@@ -159,7 +159,7 @@ export default function Home() {
 
       <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6 sm:px-6 lg:py-8">
         {/* Value proposition */}
-        <section aria-labelledby="desk-title" className="max-w-3xl">
+        <section aria-labelledby="desk-title" className="max-w-3xl border-b border-border/60 pb-8">
           <p className="label-overline text-accent">APilot · Control Desk</p>
           <h1
             id="desk-title"

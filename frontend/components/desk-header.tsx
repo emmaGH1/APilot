@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, RefreshCw, ShieldCheck } from "lucide-react";
+import { Building2, RefreshCw } from "lucide-react";
+import { APilotMark } from "@/components/apilot-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -16,11 +17,11 @@ export function DeskHeader({
   refreshing: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-border bg-card/95 shadow-[0_4px_16px_-14px_hsl(156_20%_20%_/_0.35)]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <ShieldCheck size={19} aria-hidden="true" />
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-[0_2px_6px_-2px_hsl(156_33%_20%_/_0.55)] ring-1 ring-black/5">
+            <APilotMark size={20} />
           </span>
           <div className="leading-tight">
             <p className="text-lg font-semibold tracking-tight">
