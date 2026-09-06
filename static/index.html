@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APilot - AP Exception Review Dashboard</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+         background: #f4f6f8; color: #1c2733; }
+  header { background: #123a5f; color: #fff; padding: 14px 22px;
+           display: flex; align-items: baseline; gap: 14px; }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { font-size: 12px; opacity: .8; }
+  main { padding: 20px 22px; display: grid; grid-template-columns: 1fr 1fr;
+         gap: 20px; align-items: start; }
+  .full { grid-column: 1 / -1; }
+  .cards { display: flex; gap: 14px; }
+  .card { background: #fff; border: 1px solid #dde3e8; border-radius: 10px;
+          padding: 14px 18px; min-width: 150px; }
+  .card .num { font-size: 30px; font-weight: 600; }
+  .card .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+               color: #5b6b7a; }
+  #error { display: none; background: #fdecea; color: #a4262c; border: 1px solid #f5b5b1;
+           border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #e8edf1; text-align: left; white-space: nowrap; }
+  th { background: #eef2f5; font-size: 12px; text-transform: uppercase;
+       letter-spacing: .04em; color: #46586a; position: sticky; top: 0; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr.active { background: #eaf3fb; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px;
+           font-size: 11px; font-weight: 600; }
+  .b-clean { background: #e7f4e8; color: #1d6b2c; }
+  .b-high { background: #fdecea; color: #a4262c; }
+  .b-medium { background: #fff4e5; color: #986106; }
+  .panel { background: #fff; border: 1px solid #dde3e8; border-radius: 10px;
+           padding: 16px 18px; }
+  .panel h2 { margin: 0 0 10px; font-size: 15px; }
+  .panel h3 { font-size: 13px; margin: 16px 0 6px; color: #46586a; }
+  .muted { color: #7a8a99; font-size: 12px; }
+  .kv { font-size: 13px; line-height: 1.7; }
+  .kv b { color: #46586a; }
+  table.cmp { margin-top: 8px; font-size: 12px; }
+  table.cmp td { padding: 4px 8px; }
+  .warn { color: #a4262c; font-weight: 600; }
+  .ok { color: #1d6b2c; }
+  ul.findings { margin: 6px 0; padding-left: 18px; font-size: 13px; }
+  form.review { display: flex; flex-direction: column; gap: 8px; margin-top: 8px;
+                max-width: 420px; }
+  form.review select, form.review textarea { font: inherit; padding: 6px 8px;
+                border: 1px solid #c3cdd6; border-radius: 6px; }
+  form.review button { align-self: flex-start; padding: 7px 18px; border: 0;
+                border-radius: 6px; background: #123a5f; color: #fff; cursor: pointer; }
+  form.review button:disabled { opacity: .5; cursor: default; }
+  ul.history { margin: 6px 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
+  #formMsg { font-size: 13px; min-height: 1.2em; }
+  .okmsg { color: #1d6b2c; } .errmsg { color: #a4262c; }
+</style>
+</head>
+<body>
+<header><h1>APilot</h1><span>AP exception review dashboard (deterministic demo data)</span></header>
+<main>
+  <section class="full cards" id="cards"></section>
+  <div id="error"></div>
+  <section class="full panel">
+    <h2>Invoice queue</h2>
+    <table>
+      <thead><tr><th>Invoice</th><th>Vendor</th><th>Invoice #</th><th>Total</th>
+        <th>Exception</th><th>Severity</th><th>Suggested resolution</th></tr></thead>
+      <tbody id="queue"></tbody>
+    </table>
+  </section>
+  <section class="panel" id="detail"><p class="muted">Select an invoice to review.</p></section>
+</main>
+<script>
+"use strict";
+let state = { invoices: [], reviewsByInvoice: {}, activeId: null };
+
+function showError(msg) {
+  const el = document.getElementById("error");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    let detail = res.status + " " + res.statusText;
+    try {
+      const body = await res.json();
+      if (typeof body.detail === "string") detail = body.detail;
+      else if (Array.isArray(body.detail)) detail = body.detail.map(d => d.msg).join("; ");
+    } catch (_) { /* keep default */ }
+    const err = new Error(detail);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+function fmtMoney(n) {
+  return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderSummary(summary) {
+  const cards = document.getElementById("cards");
+  cards.innerHTML = [
+    ["Total invoices", summary.total],
+    ["AUTO_POST", summary.auto_post],
+    ["HUMAN_REVIEW", summary.human_review],
+  ].map(([lbl, num]) =>
+    `<div class="card"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`
+  ).join("");
+}
+
+function badgeFor(type, severity) {
+  if (!type) return '<span class="badge b-clean">CLEAN</span>';
+  const cls = severity === "high" ? "b-high" : "b-medium";
+  return `<span class="badge ${cls}">${type}</span>`;
+}
+
+function firstFinding(inv) {
+  const f = inv.audit && inv.audit.findings && inv.audit.findings[0];
+  return f ? f : null;
+}
+
+function renderTable() {
+  const tbody = document.getElementById("queue");
+  tbody.innerHTML = state.invoices.map(inv => {
+    const f = firstFinding(inv);
+    return `<tr data-id="${inv.id}" class="${inv.id === state.activeId ? "active" : ""}">
+      <td>${inv.id}</td><td>${escapeHtml(inv.vendor)}</td><td>${escapeHtml(inv.invoice_number)}</td>
+      <td>${fmtMoney(inv.total)}</td>
+      <td>${badgeFor(f && f.type, f && f.severity)}</td>
+      <td>${f ? f.severity : ""}</td>
+      <td>${f ? escapeHtml(inv.audit.suggested_resolution) : "Automatically post invoice"}</td>
+    </tr>`;
+  }).join("");
+  tbody.querySelectorAll("tr").forEach(tr => {
+    tr.addEventListener("click", () => selectInvoice(tr.dataset.id));
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function selectInvoice(id) {
+  state.activeId = id;
+  renderTable();
+  const inv = state.invoices.find(i => i.id === id);
+  renderDetail(inv);
+}
+
+function compareRows(inv) {
+  const po = inv.source_docs.po;
+  const receipt = inv.source_docs.receipt;
+  const poLines = po ? po.line_items : [];
+  const received = receipt ? receipt.received : {};
+  const skus = [];
+  const seen = new Set();
+  for (const li of inv.line_items.concat(poLines)) {
+    if (!seen.has(li.sku)) { seen.add(li.sku); skus.push(li.sku); }
+  }
+  const poBySku = {}; poLines.forEach(li => poBySku[li.sku] = li);
+  const invBySku = {}; inv.line_items.forEach(li => invBySku[li.sku] = li);
+  return skus.map(sku => {
+    const il = invBySku[sku], pl = poBySku[sku];
+    return {
+      sku,
+      invQty: il ? il.qty : "—", invPrice: il ? fmtMoney(il.unit_price) : "—",
+      poQty: pl ? pl.qty : "—", poPrice: pl ? fmtMoney(pl.unit_price) : "—",
+      recvQty: sku in received ? received[sku] : "—",
+      invCell: il ? `<b>${il.qty} &times; ${fmtMoney(il.unit_price)}</b>` : "—",
+      poCell: pl ? `${pl.qty} &times; ${fmtMoney(pl.unit_price)}` : "—",
+    };
+  });
+}
+
+function renderDetail(inv) {
+  const panel = document.getElementById("detail");
+  const f = firstFinding(inv);
+  const findings = (inv.audit && inv.audit.findings) || [];
+  const rows = compareRows(inv);
+  panel.innerHTML = `
+    <h2>${inv.id} ${badgeFor(f && f.type, f && f.severity)}
+      <span class="muted">${escapeHtml(inv.vendor)} &middot; invoice ${escapeHtml(inv.invoice_number)}</span></h2>
+    <div class="kv">
+      <b>PO:</b> ${inv.po_number ? escapeHtml(inv.po_number) : "none referenced"} &middot;
+      <b>Total:</b> ${fmtMoney(inv.total)} &middot;
+      <b>Action:</b> ${inv.audit ? escapeHtml(inv.audit.action) : "—"} (confidence ${inv.audit ? inv.audit.confidence : "—"})
+    </div>
+    <h3>Lines: invoice vs PO vs received</h3>
+    <table class="cmp">
+      <thead><tr><th>SKU</th><th>Invoice</th><th>PO</th><th>Received qty</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${escapeHtml(r.sku)}</td>
+        <td>${r.invCell}</td><td>${r.poCell}</td><td>${r.recvQty}</td></tr>`).join("")}</tbody>
+    </table>
+    <h3>Findings (${findings.length})</h3>
+    ${findings.length
+      ? `<ul class="findings">${findings.map(x =>
+          `<li><span class="${x.severity === "high" ? "warn" : "ok"}">[${x.severity.toUpperCase()} ${x.type}]</span> ${escapeHtml(x.detail)}</li>`
+        ).join("")}</ul>`
+      : `<p class="muted">No findings &mdash; matches PO and receipt.</p>`}
+    <h3>Suggested resolution</h3>
+    <p class="kv">${inv.audit ? escapeHtml(inv.audit.suggested_resolution) : "—"}</p>
+    <h3>Review history (${inv.reviews.length})</h3>
+    <ul class="history" id="reviewHistory">
+      ${inv.reviews.length
+        ? inv.reviews.map(r => `<li><b>${escapeHtml(r.verdict)}</b> by ${escapeHtml(r.reviewer)}
+            at ${escapeHtml(r.timestamp)}${r.reason ? ": " + escapeHtml(r.reason) : ""}</li>`).join("")
+        : "<li class='muted'>No reviews yet.</li>"}
+    </ul>
+    <h3>Add review</h3>
+    <form class="review" id="reviewForm">
+      <select id="verdict" name="verdict">
+        <option value="approve">approve</option>
+        <option value="hold">hold</option>
+        <option value="escalate">escalate</option>
+      </select>
+      <textarea id="reason" name="reason" rows="2" placeholder="Reason (optional)"></textarea>
+      <div><button type="submit" id="submitBtn">Submit review</button></div>
+      <div id="formMsg"></div>
+    </form>`;
+  panel.querySelector("#reviewForm").addEventListener("submit", submitReview);
+}
+
+async function submitReview(ev) {
+  ev.preventDefault();
+  const inv = state.invoices.find(i => i.id === state.activeId);
+  const msg = document.getElementById("formMsg");
+  const btn = document.getElementById("submitBtn");
+  const payload = {
+    verdict: document.getElementById("verdict").value,
+    reason: document.getElementById("reason").value,
+  };
+  msg.className = ""; msg.textContent = "";
+  btn.disabled = true;
+  try {
+    const record = await fetchJSON("/api/review/" + encodeURIComponent(inv.id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    inv.reviews.push(record);
+    msg.className = "okmsg";
+    msg.textContent = `Saved: ${record.verdict} (${record.reviewer}, ${record.timestamp})`;
+    renderDetail(inv); // refresh the history list
+  } catch (err) {
+    msg.className = "errmsg";
+    msg.textContent = "Failed to submit review: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function init() {
+  try {
+    const [summary, invoices] = await Promise.all([
+      fetchJSON("/api/summary"), fetchJSON("/api/invoices"),
+    ]);
+    state.invoices = invoices;
+    renderSummary(summary);
+    renderTable();
+    if (invoices.length) selectInvoice(invoices[0].id);
+  } catch (err) {
+    showError("Failed to load dashboard data: " + err.message);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
