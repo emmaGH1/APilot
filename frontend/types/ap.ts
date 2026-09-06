@@ -1,3 +1,3 @@
 export type InvoiceStatus = "pending" | "approved" | "exception";
-
-export type Invoice = { id: string; vendor: string; amount: number; status: InvoiceStatus; dueDate: string };
+export type Finding = { message?: string; field?: string; expected?: unknown; actual?: unknown };
+export type Invoice = { id: string; vendor: string; invoice_number: string; po_number: string | null; currency: string; line_items: { description?: string; sku?: string; qty: number; unit_price: number }[]; total: number; audit?: { action: string; findings?: Finding[] } | null; source_docs: { po?: Record<string, unknown> | null; receipt?: Record<string, unknown> | null }; reviews: { invoice_id: string; verdict: "approve" | "hold" | "escalate"; reason: string; reviewer: string; timestamp: string }[] };

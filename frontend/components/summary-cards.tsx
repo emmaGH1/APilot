@@ -1,0 +1,3 @@
+import { AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import type { Summary } from "@/lib/api";
+export function SummaryCards({ summary }: { summary: Summary }) { const cards = [["Invoices processed", summary.total, FileText, "text-stone-500"], ["Needs human review", summary.human_review, AlertTriangle, "text-[#a66b18]"], ["Auto-posted", summary.auto_post, CheckCircle2, "text-[#397357]"] ] as const; return <section className="grid gap-3 sm:grid-cols-3">{cards.map(([label,value,Icon,color]) => <div className="border border-stone-200 bg-white p-5" key={label}><div className="flex justify-between"><p className="text-sm text-stone-500">{label}</p><Icon className={color} size={18}/></div><p className="mt-4 font-serif text-4xl">{value}</p></div>)}</section> }

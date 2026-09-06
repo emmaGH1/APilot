@@ -1,0 +1,3 @@
+import { Menu, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+export function DashboardHeader({ onExtract }: { onExtract: () => void }) { return <header className="flex items-center justify-between border-b border-stone-200 bg-[#fbfaf7] px-5 py-5 md:px-8"><div className="flex items-center gap-3"><Menu className="lg:hidden" size={21}/><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-stone-500">Monday, 24 June 2024</p><h1 className="mt-1 font-serif text-3xl">Good morning, finance team.</h1></div></div><Button onClick={onExtract} variant="outline" className="hidden gap-2 border-stone-300 bg-transparent sm:inline-flex"><Plus size={16}/> Extract invoice</Button></header> }
