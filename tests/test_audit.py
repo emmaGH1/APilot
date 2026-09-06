@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import apilot.audit
+import apilot.policy
 from apilot.models import AuditRecord
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -70,6 +71,20 @@ def test_records_are_audit_records():
         assert isinstance(r.confidence, float)
         assert isinstance(r.findings, list)
         assert isinstance(r.suggested_resolution, str)
+
+
+def test_records_carry_policy_control_fields():
+    records = apilot.audit.run_pipeline()
+    for r in records:
+        assert r.policy_rule
+        assert isinstance(r.recommended_action, str) and r.recommended_action
+        if r.action == "AUTO_POST":
+            assert r.review_owner == ""
+            assert r.posting_status == "AUTO_POSTED"
+        else:
+            assert r.review_owner
+            assert r.posting_status == "BLOCKED_FOR_REVIEW"
+        assert r.posting_status in apilot.policy.ALL_STATUSES
 
 
 def test_audit_json_roundtrip():

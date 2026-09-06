@@ -74,6 +74,41 @@ def test_retry_once_on_invalid_content_json(monkeypatch, llm_key):
     assert len(calls) == 2
 
 
+def test_fenced_json_content_is_parsed(monkeypatch, llm_key):
+    fenced = (
+        "Here is the extracted invoice:\n"
+        f"```json\n{json.dumps(VALID_INVOICE)}\n```\n"
+        "Let me know if you need anything else."
+    )
+    monkeypatch.setattr(
+        apilot.extract, "urlopen",
+        lambda req, timeout=60: FakeResp(_envelope(fenced)),
+    )
+    invoice = extract_invoice("some invoice text")
+    assert invoice.vendor == "Acme Supplies"
+    assert invoice.invoice_number == "INV-9001"
+    assert invoice.line_items[0].sku == "SKU-1001"
+
+
+def test_fence_without_language_tag_is_parsed(monkeypatch, llm_key):
+    fenced = f"```\n{json.dumps(VALID_INVOICE)}\n```"
+    monkeypatch.setattr(
+        apilot.extract, "urlopen",
+        lambda req, timeout=60: FakeResp(_envelope(fenced)),
+    )
+    invoice = extract_invoice("some invoice text")
+    assert invoice.invoice_number == "INV-9001"
+
+
+def test_plain_json_content_still_parses(monkeypatch, llm_key):
+    monkeypatch.setattr(
+        apilot.extract, "urlopen",
+        lambda req, timeout=60: FakeResp(_envelope(json.dumps(VALID_INVOICE))),
+    )
+    invoice = extract_invoice("some invoice text")
+    assert invoice.invoice_number == "INV-9001"
+
+
 def test_missing_key_raises_before_any_request(monkeypatch):
     monkeypatch.delenv("APILOT_LLM_KEY", raising=False)
     calls = []
@@ -106,6 +141,9 @@ def test_api_extract_happy_path(client, monkeypatch, llm_key):
     assert body["invoice"]["vendor"] == "Acme Supplies"
     assert [f["type"] for f in body["findings"]] == ["MISSING_PO"]
     assert body["action"] == "HUMAN_REVIEW"
+    assert body["posting_status"] == "BLOCKED_FOR_REVIEW"
+    assert body["review_owner"] == "Procurement/AP"
+    assert body["policy_rule"] and body["recommended_action"]
     assert "purchase order" in body["suggested_resolution"]
     assert body["po"] is None
     assert body["receipt"] is None

@@ -42,6 +42,11 @@ class Decision(BaseModel):
     findings: list[Finding]
     confidence: float  # 0.0 to 1.0
     suggested_resolution: str
+    # Policy-aware control fields (see apilot.policy for the routing table).
+    policy_rule: str        # control rule that fired
+    review_owner: str       # finance owner for the exception ("" when clean)
+    recommended_action: str # what the owner should do next
+    posting_status: str     # one of apilot.policy.ALL_STATUSES
 
 class AuditRecord(BaseModel):
     invoice_id: str
@@ -49,3 +54,7 @@ class AuditRecord(BaseModel):
     confidence: float
     findings: list[Finding]
     suggested_resolution: str
+    policy_rule: str
+    review_owner: str
+    recommended_action: str
+    posting_status: str

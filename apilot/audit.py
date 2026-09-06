@@ -34,6 +34,10 @@ def run_pipeline(data_dir=None) -> list[AuditRecord]:
             confidence=decision.confidence,
             findings=decision.findings,
             suggested_resolution=decision.suggested_resolution,
+            policy_rule=decision.policy_rule,
+            review_owner=decision.review_owner,
+            recommended_action=decision.recommended_action,
+            posting_status=decision.posting_status,
         )
         for decision in (decide(inv, pos, receipts, invoices) for inv in invoices)
     ]

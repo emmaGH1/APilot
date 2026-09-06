@@ -27,12 +27,20 @@ def test_finding_and_decision_fields():
         findings=[finding],
         confidence=0.8,
         suggested_resolution="Review price discrepancy",
+        policy_rule="price tolerance",
+        review_owner="AP/procurement",
+        recommended_action="reconcile unit price with procurement",
+        posting_status="BLOCKED_FOR_REVIEW",
     )
     assert decision.invoice_id == "INV-0001"
     assert decision.action == "HUMAN_REVIEW"
     assert decision.findings == [finding]
     assert decision.confidence == 0.8
     assert decision.suggested_resolution == "Review price discrepancy"
+    assert decision.policy_rule == "price tolerance"
+    assert decision.review_owner == "AP/procurement"
+    assert decision.recommended_action == "reconcile unit price with procurement"
+    assert decision.posting_status == "BLOCKED_FOR_REVIEW"
 
 
 def test_invoice_without_po():

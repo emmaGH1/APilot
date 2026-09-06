@@ -6,6 +6,7 @@ from the environment on every call so tests can set/unset them.
 """
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from urllib.request import urlopen  # patched as apilot.extract.urlopen in tests
@@ -65,6 +66,21 @@ def _post(request) -> str:
     return content
 
 
+def _parse_content(content: str) -> dict:
+    """Parse model content as JSON, tolerating a ```json fenced block.
+
+    Raises the same errors as json.loads so the retry loop treats an
+    unusable body exactly like before.
+    """
+    match = re.search(r"```(?:json)?\s*(.*?)```", content, re.DOTALL | re.IGNORECASE)
+    if match:
+        content = match.group(1)
+    data = json.loads(content)
+    if not isinstance(data, dict):
+        raise ValueError("content is not a JSON object")
+    return data
+
+
 def extract_invoice(text: str) -> Invoice:
     """Extract an Invoice from raw invoice text via one chat-completions call."""
     key = os.environ.get("APILOT_LLM_KEY")
@@ -93,9 +109,7 @@ def extract_invoice(text: str) -> Invoice:
     for _ in range(2):  # retry once when the model returns invalid invoice JSON
         content = _post(request)  # envelope/HTTP errors raise immediately
         try:
-            data = json.loads(content)
-            if not isinstance(data, dict):
-                raise ValueError("content is not a JSON object")
+            data = _parse_content(content)
             data.setdefault("id", FALLBACK_ID)
             return Invoice.model_validate(data)
         except (json.JSONDecodeError, ValueError, ValidationError) as exc:
